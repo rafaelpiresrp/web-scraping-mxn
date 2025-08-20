@@ -1,66 +1,79 @@
 import pandas as pd
+import os
+import re
 import numpy as np
-import matplotlib.pyplot as plt
+import unicodedata
 
-# Importando o CSV
-precos_alimentos=pd.read_csv("C:/Users/rapirol/Documents/Chile/preços/alimentos/alimentos_odepa.csv",sep="|",on_bad_lines='skip')
-precos_alimentos['precio_promedio']=precos_alimentos['precio_promedio'].str.replace(',','.')
+path="C:/Users/rapirol/Downloads/sniim/raw_data2/"
+archivos=next(os.walk(path))[2]
+lista_df=[]
 
-# Função para processar os dados e retornar o dataframe médio por produto
-def processar_preco_medio(df,produto):
-    df_produto=df[df["producto"]==produto]
-    df_produto["precio_promedio"]=pd.to_numeric(df_produto["precio_promedio"],errors="coerce")
-    df_produto["fecha"]=pd.to_datetime(df_produto["fecha"],format="%d/%m/%Y %H:%M:%S")
-    df_produto["MesAno"]=df_produto["fecha"].dt.to_period("M")
-    df_mediaprecos=df_produto.groupby(["MesAno","region"])["precio_promedio"].mean().unstack()
-    df_mediaprecos=df_mediaprecos.reset_index()
-    df_mediaprecos.columns.name=None
-    return df_mediaprecos
+for i in range(len(archivos)):
+    df_temp=pd.read_csv(path+archivos[i],thousands=',')
+    df_temp=df_temp.drop([0])
+    nombre_producto=re.search(r"(.+)_\d{4}-\d{4}.csv",archivos[i]).group(1).replace("_"," ")
+    df_temp['producto']=unicodedata.normalize('NFC',nombre_producto)
+    lista_df.append(df_temp)
 
-# Lista de produtos e nomes das abas
-produtos=["Aceite maravilla",
-"Aceite vegetal",
-"Arroz grano ancho grado 2",
-"Arroz grano ancho grado 1",
-"Arroz grano largo delgado grado 2",
-"Huevo color grande (primera)",
-"Huevo blanco grande (primera)",
-"Mantequilla con sal",
-"Harina sin polvos de hornear",
-"Harina con polvos de hornear",
-"Spaghetti N°5",
-"Azúcar",
-"Queso Chanco",
-"Queso Gauda",
-"Queso Mantecoso",
-"Queso Chanco",
-"Leche en Polvo Descremada",
-"Leche en Polvo Entera",
-"Leche Fluida Entera",
-"Leche en Polvo Descremada"]
-abas=["Aceite maravilla",
-"Aceite vegetal",
-"Arroz grano ancho grado 2",
-"Arroz grano ancho grado 1",
-"Arroz delgado grado 2",
-"Huevo color grande (primera)",
-"Huevo blanco grande (primera)",
-"Mantequilla con sal",
-"Harina sin polvos de hornear",
-"Harina con polvos de hornear",
-"Spaghetti N°5",
-"Azúcar",
-"Queso Chanco",
-"Queso Gauda",
-"Queso Mantecoso",
-"Queso Chanco",
-"Leche en Polvo Descremada",
-"Leche en Polvo Entera",
-"Leche Fluida Entera",
-"Leche en Polvo Descremada"]
+df_sniim_fyh=pd.concat(lista_df,ignore_index=True)
+df_sniim_fyh.columns=df_sniim_fyh.columns.str.lower()
+df_sniim_fyh.rename(columns={"precio mín":"precio_mín","precio max":"precio_max","precio frec":"precio_frec","obs.":"observaciones"},inplace=True)
+df_sniim_fyh['fecha']=pd.to_datetime(df_sniim_fyh['fecha'],dayfirst=True,format='%d/%m/%Y')
 
-# Criando o arquivo Excel com múltiplas abas
-with pd.ExcelWriter('C:/Users/rapirol/Documents/Chile/preços/alimentos/precos_alimentos_mercado.xlsx') as writer:
-    for produto,aba in zip(produtos,abas):
-        df_mediaprecos=processar_preco_medio(precos_alimentos,produto)
-        df_mediaprecos.to_excel(writer,sheet_name=aba,index=False)
+df=pd.DataFrame(df_sniim_fyh)
+df['fecha']=pd.to_datetime(df['fecha'])
+
+df_abacate=df[df['producto'].str.contains('Aguacate')]
+df_abacate['quinzena']=df_abacate['fecha'].dt.day.apply(lambda x:1 if x<=15 else 2)
+df_abacate['ano_mes']=df_abacate['fecha'].dt.to_period('M')
+df_abacate['preco_medio']=df_abacate[['precio_mín','precio_max','precio_frec']].mean(axis=1)
+df_abacate_grouped=df_abacate.groupby(['origen','ano_mes','quinzena'])['preco_medio'].mean().reset_index()
+
+with pd.ExcelWriter('C:/Users/rapirol/Downloads/precos_abacate.xlsx') as writer:
+    for origem in df_abacate_grouped['origen'].unique():
+        df_origem=df_abacate_grouped[df_abacate_grouped['origen']==origem]
+        df_origem.to_excel(writer,sheet_name=origem,index=False)
+
+regioes_permitidas=['Distrito Federal','Jalisco','Michoacán','Nayarit','Nuevo León','Puebla','Sinaloa']
+produtos_interesse=['Aguacate','Calabacita','Cebolla','Cilantro','Epazote','Perejil','Chayote','Chile Anaheim','Chile California','Chile Bola','Chile Caloro','Chile Caribe','Chile Cat','Chile Chilaca','Chile de Árbol fresco','Chile Dulce','Chile Habanero','Chile Húngaro','Chile Mirasol','Chile Jalapeño','Chile Pimiento morrón','Chile Poblano','Chile Puya fresco','Chile Serrano','Coliflor','Durazno','Ejote','Guayaba','Jitomate','Lechuga','Col','Limón','Manzana','Melón','Naranja','Nopal','Papa','Papaya','Pepino','Pera','Piña','Plátano','Sandía','Tomate Verde','Toronja','Uva','Zanahoria']
+
+df=df[df['origen'].isin(regioes_permitidas)]
+df['produto_base']=df['producto'].apply(lambda x: next((produto for produto in produtos_interesse if produto in x),None))
+df=df[~df['produto_base'].isna()]
+df['quinzena']=df['fecha'].dt.day.apply(lambda x:1 if x<=15 else 2)
+df['ano_mes']=df['fecha'].dt.to_period('M')
+df['preco_medio']=df[['precio_mín','precio_max','precio_frec']].mean(axis=1)
+df_grouped=df.groupby(['produto_base','origen','ano_mes','quinzena'])['preco_medio'].mean().reset_index()
+df_pivoted=df_grouped.pivot_table(index=['ano_mes','quinzena'],columns='origen',values='preco_medio').reset_index()
+
+with pd.ExcelWriter('C:/Users/rapirol/Downloads/precos_produtos2.xlsx') as writer:
+    for produto in df_grouped['produto_base'].unique():
+        df_produto=df_grouped[df_grouped['produto_base']==produto]
+        df_pivot=df_produto.pivot_table(index=['ano_mes','quinzena'],columns='origen',values='preco_medio').reset_index()
+        df_pivot.to_excel(writer,sheet_name=produto,index=False)
+
+df=df[df['origen'].isin(regioes_permitidas)]
+df['produto_base']=df['producto'].apply(lambda x: next((produto for produto in produtos_interesse if produto in x),None))
+df=df[~df['produto_base'].isna()]
+df['quinzena']=df['fecha'].dt.day.apply(lambda x:1 if x<=15 else 2)
+df['ano_mes']=df['fecha'].dt.to_period('M')
+df['preco_medio']=df[['precio_mín','precio_max','precio_frec']].mean(axis=1)
+df_grouped=df.groupby(['produto_base','origen','ano_mes','quinzena'])['preco_medio'].mean().reset_index()
+df_pivoted=df_grouped.pivot_table(index=['ano_mes','quinzena'],columns='origen',values='preco_medio')
+df_variation=df_pivoted.groupby(level=0).pct_change()*100
+df_variation.columns=[f'var_{col}' for col in df_variation.columns]
+df_final=df_pivoted.join(df_variation)
+df_final['media_variacao']=df_variation.mean(axis=1)
+
+with pd.ExcelWriter('C:/Users/rapirol/Downloads/precos_produtos_15d15d.xlsx') as writer:
+    for produto in df_grouped['produto_base'].unique():
+        df_produto=df_grouped[df_grouped['produto_base']==produto]
+        df_pivot_produto=df_produto.pivot_table(index=['ano_mes','quinzena'],columns='origen',values='preco_medio')
+        df_variation_produto=df_pivot_produto.groupby(level=0).pct_change()*100
+        df_variation_produto.columns=[f'var_{col}' for col in df_variation_produto.columns]
+        df_pivot_final_produto=df_pivot_produto.join(df_variation_produto)
+        df_pivot_final_produto['media_variacao']=df_variation_produto.mean(axis=1)
+        df_pivot_final_produto.to_excel(writer,sheet_name=produto,index=False)
+
+print("Arquivo Excel criado com sucesso com variações quinzenais!")
+
