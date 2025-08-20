@@ -1,0 +1,66 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Importando o CSV
+precos_alimentos=pd.read_csv("C:/Users/rapirol/Documents/Chile/preços/alimentos/alimentos_odepa.csv",sep="|",on_bad_lines='skip')
+precos_alimentos['precio_promedio']=precos_alimentos['precio_promedio'].str.replace(',','.')
+
+# Função para processar os dados e retornar o dataframe médio por produto
+def processar_preco_medio(df,produto):
+    df_produto=df[df["producto"]==produto]
+    df_produto["precio_promedio"]=pd.to_numeric(df_produto["precio_promedio"],errors="coerce")
+    df_produto["fecha"]=pd.to_datetime(df_produto["fecha"],format="%d/%m/%Y %H:%M:%S")
+    df_produto["MesAno"]=df_produto["fecha"].dt.to_period("M")
+    df_mediaprecos=df_produto.groupby(["MesAno","region"])["precio_promedio"].mean().unstack()
+    df_mediaprecos=df_mediaprecos.reset_index()
+    df_mediaprecos.columns.name=None
+    return df_mediaprecos
+
+# Lista de produtos e nomes das abas
+produtos=["Aceite maravilla",
+"Aceite vegetal",
+"Arroz grano ancho grado 2",
+"Arroz grano ancho grado 1",
+"Arroz grano largo delgado grado 2",
+"Huevo color grande (primera)",
+"Huevo blanco grande (primera)",
+"Mantequilla con sal",
+"Harina sin polvos de hornear",
+"Harina con polvos de hornear",
+"Spaghetti N°5",
+"Azúcar",
+"Queso Chanco",
+"Queso Gauda",
+"Queso Mantecoso",
+"Queso Chanco",
+"Leche en Polvo Descremada",
+"Leche en Polvo Entera",
+"Leche Fluida Entera",
+"Leche en Polvo Descremada"]
+abas=["Aceite maravilla",
+"Aceite vegetal",
+"Arroz grano ancho grado 2",
+"Arroz grano ancho grado 1",
+"Arroz delgado grado 2",
+"Huevo color grande (primera)",
+"Huevo blanco grande (primera)",
+"Mantequilla con sal",
+"Harina sin polvos de hornear",
+"Harina con polvos de hornear",
+"Spaghetti N°5",
+"Azúcar",
+"Queso Chanco",
+"Queso Gauda",
+"Queso Mantecoso",
+"Queso Chanco",
+"Leche en Polvo Descremada",
+"Leche en Polvo Entera",
+"Leche Fluida Entera",
+"Leche en Polvo Descremada"]
+
+# Criando o arquivo Excel com múltiplas abas
+with pd.ExcelWriter('C:/Users/rapirol/Documents/Chile/preços/alimentos/precos_alimentos_mercado.xlsx') as writer:
+    for produto,aba in zip(produtos,abas):
+        df_mediaprecos=processar_preco_medio(precos_alimentos,produto)
+        df_mediaprecos.to_excel(writer,sheet_name=aba,index=False)
