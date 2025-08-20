@@ -1,13 +1,13 @@
 This repository contains Python scripts to collect and process fruit and vegetable prices from the Mexican SNIIM system.
 
-- Script 1: sniim_scraping.py
+- Script 1: scraping.py
   - Performs web scraping from the SNIIM website to collect historical market prices for fruits and vegetables.
   - Automatically handles pagination and large date ranges.
   - Saves the results as CSV files organized by product and time range.
   - Allows setting the search period and the price format (per kilogram or commercial presentation).
   - Splits long queries into chunks of up to 5 years to prevent server errors.
 
-- Script 2: odepa_processing.py
+- Script 2: managing_data.py
   - Processes a CSV file containing food prices.
   - Converts price columns to numeric and parses the date column.
   - Groups data by month and region and calculates average prices per product.
