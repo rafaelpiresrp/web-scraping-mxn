@@ -6,12 +6,15 @@ This repository contains Python scripts to collect and process fruit and vegetab
   - Saves the results as CSV files organized by product and time range.
   - Allows setting the search period and the price format (per kilogram or commercial presentation).
   - Splits long queries into chunks of up to 5 years to prevent server errors.
-
+  - 
 - Script 2: managing_data.py
-  - Processes a CSV file containing food prices.
-  - Converts price columns to numeric and parses the date column.
-  - Groups data by month and region and calculates average prices per product.
-  - Saves the results as Excel files with multiple sheets, one per product.
+  - Reads the CSV files downloaded by the scraping script.
+  - Cleans the data, handles encoding and removes unnecessary rows.
+  - Converts columns to proper types (dates, numeric) and normalizes product names with accents.
+  - Filters for selected regions and products of interest.
+  - Calculates biweekly averages, groups by product, origin, month, and half-month.
+  - Pivots tables to have regions as columns and calculates biweekly price variations.
+  - Saves results in multiple Excel files with separate sheets per product.
 
 - Requirements
   - Python 3.8 or higher
