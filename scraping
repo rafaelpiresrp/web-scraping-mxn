@@ -1,0 +1,140 @@
+#Bibliotecas
+import re
+import csv
+from bs4 import BeautifulSoup
+import urllib.request
+from urllib.error import HTTPError
+import os
+from datetime import datetime, timedelta
+import pandas as pd
+import logging
+#Cria os caminhos para salvar os dados
+path="C:/Users/rapirol/Downloads/sniim/"
+subdir1=path+'temp/'
+subdir2=path+'raw_data2/'
+try:
+    if not os.path.exists(subdir1):
+        os.makedirs(subdir1)
+    if not os.path.exists(subdir2):
+        os.makedirs(subdir2)
+except Exception as e:
+    print("Error al crear carpeta:",e)
+#Função para o scraping e salvar csv
+def creaTabla(url,archivo_salida,paginacion,categoria):
+    print(url,archivo_salida,paginacion,categoria)
+    try:
+        with urllib.request.urlopen(url+str(paginacion),timeout=500) as response,\
+             open(path+'temp/'+archivo_salida,'wb') as out_file,\
+             open(path+'raw_data2/'+archivo_salida+".csv",'w',newline="\n") as csvfile:
+            data=response.read().decode('utf-8').encode('utf-8')
+            soup=BeautifulSoup(data)
+            try:
+                paginas=soup.find('span',attrs={"id":"lblPaginacion"}).get_text()
+                print(paginas,paginas!='Página  1 de  1')
+                total_paginas=paginas.split(' ')[-1]
+                if total_paginas!='1':
+                    return creaTabla(url,archivo_salida,paginacion*int(total_paginas),categoria)
+                out_file.write(data)
+                table=soup.find('table',attrs={"id":"tblResultados"})
+                spamwriter=csv.writer(csvfile,delimiter=',',quotechar='"',quoting=csv.QUOTE_MINIMAL)
+                for row in table.find_all("tr"):
+                    x=[td.get_text() for td in row.find_all("td")]
+                    spamwriter.writerow(x)
+            except:
+                print('La página no tiene tabla,',url,paginacion)
+                if os.path.exists(path+"raw_data2/"+archivo_salida+".csv"):
+                    csvfile.close()
+                    os.remove(path+"raw_data2/"+archivo_salida+".csv")
+                if os.path.exists(path+"temp/"+archivo_salida):
+                    out_file.close()
+                    os.remove(path+"temp/"+archivo_salida)
+                pass
+    except Exception as e:
+        print("Error:",url,e)
+#Se define lista de productos de interés
+lista_productos=['Aguacate',
+'Calabacita',
+'Cebolla',
+'Cilantro',
+'Epazote',
+'Perejil',
+'Chayote',
+'Chile Anaheim',
+'Chile California',
+'Chile Bola',
+'Chile Caloro',
+'Chile Caribe',
+'Chile Cat',
+'Chile Chilaca',
+'Chile de Árbol fresco',
+'Chile Dulce',
+'Chile Habanero',
+'Chile Húngaro',
+'Chile Mirasol',
+'Chile Jalapeño',
+'Chile Pimiento morrón',
+'Chile Poblano',
+'Chile Puya fresco',
+'Chile Serrano',
+'Coliflor',
+'Durazno',
+'Ejote',
+'Guayaba',
+'Jitomate',
+'Lechuga',
+'Col',
+'Limón',
+'Manzana',
+'Melón',
+'Naranja',
+'Nopal',
+'Papa',
+'Papaya',
+'Pepino',
+'Pera',
+'Piña',
+'Plátano',
+'Sandía',
+'Tomate Verde',
+'Toronja',
+'Uva',
+'Zanahoria']
+#Se define si los precios se requieren por 1: Presentación comercial ó 2: Kilogramo calculado
+precios_por=2
+#Se definen las fechas de búsqueda
+str_fecha_inicio="01/03/2025"
+str_fecha_final="15/03/2025"
+#Se convierten a tipo date
+dt_fecha_inicio=datetime.strptime(str_fecha_inicio,'%d/%m/%Y')
+dt_fecha_final=datetime.strptime(str_fecha_final,'%d/%m/%Y')
+#Se define un intervalo máximo de años para hacer la descarga en un solo request o en varios
+max_intervalo_años=5
+#Ligas a precios
+mapa_precios_url="http://www.economia-sniim.gob.mx/mapa.asp"
+base_url='http://www.economia-sniim.gob.mx/Nuevo/Consultas/MercadosNacionales/PreciosDeMercado/Agricolas'
+frutas_hortalizas_endpoint="/ResultadosConsultaFechaFrutasYHortalizas.aspx"
+#Se realiza un request para obtener las URL de los productos y se realiza el scraping
+with urllib.request.urlopen(mapa_precios_url) as response,open(path+'mapa.aspx','wb') as out_file:
+    data=response.read()
+    out_file.write(data)
+    soup_directorio=BeautifulSoup(data)
+    for anchor in soup_directorio.findAll('a',string=re.compile("Precio\sde\s(?!la|los|Granos)\w+")):
+        producto_id=re.search(r"ProductoId=(\d+)",anchor['href']).group(1)
+        nombre_producto=anchor.string.replace("Precio de ","")
+        if "/" in nombre_producto:
+            nombre_producto=nombre_producto.replace("/","_")
+        if any(p in nombre_producto for p in lista_productos):
+            if(dt_fecha_final.year-dt_fecha_inicio.year)>max_intervalo_años:
+                for anio_inicio in range(dt_fecha_inicio.year,dt_fecha_final.year,max_intervalo_años):
+                    if(anio_inicio+(max_intervalo_años-1))>dt_fecha_final.year:
+                        anio_final=dt_fecha_final.year
+                    else:
+                        anio_final=anio_inicio+(max_intervalo_años-1)
+                    url=base_url+frutas_hortalizas_endpoint+f"?ProductoId={producto_id}&fechaInicio=01/01/{anio_inicio}&fechaFinal=31/12/{anio_final}&PreciosPorId={precios_por}&RegistrosPorPagina="
+                    if(url.find("http:")>=0):
+                        creaTabla(url,nombre_producto.replace(" ","_")+"_"+str(anio_inicio)+"-"+str(anio_final),1000,nombre_producto.replace(" ","_"))
+            else:
+                url=base_url+frutas_hortalizas_endpoint+f"?ProductoId={producto_id}&fechaInicio={str_fecha_inicio}&fechaFinal={str_fecha_final}&PreciosPorId={precios_por}&RegistrosPorPagina="
+                if(url.find("http:")>=0):
+                    creaTabla(url,nombre_producto.replace(" ","_")+"_"+str(dt_fecha_inicio.year)+"-"+str(dt_fecha_final.year),1000,nombre_producto.replace(" ","_"))
+print("Descarga finalizada.")
