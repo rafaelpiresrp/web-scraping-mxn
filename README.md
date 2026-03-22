@@ -1,60 +1,52 @@
-# Scraping SNIIM - Preços Agrícolas do México
+# SNIIM Scraping - Mexican Agricultural Prices
 
-Web scraping de preços de frutas e hortaliças do [SNIIM](http://www.economia-sniim.gob.mx) (Sistema Nacional de Información e Integración de Mercados) do México.
+Web scraping of fruit and vegetable prices from [SNIIM](http://www.economia-sniim.gob.mx) (Sistema Nacional de Información e Integración de Mercados), Mexico's national market information system.
 
 ## Scripts
 
-| Arquivo | Descrição |
+| File | Description |
 |---|---|
-| `01_scraping_sniim.py` | Faz o scraping das tabelas de preços do SNIIM e salva CSVs por produto |
-| `02_transformacao_quinzenal.py` | Consolida os CSVs, calcula preço médio e variação quinzenal por região |
+| `01_scraping_sniim.py` | Scrapes price tables from SNIIM and saves raw CSVs per product |
+| `02_transformacao_quinzenal.py` | Consolidates CSVs, computes average prices and biweekly variation by region |
 
-## Configuração
+## Setup
 
-Antes de rodar, ajuste o `PATH` nos dois scripts para o diretório desejado:
+Before running, update the `PATH` variable in both scripts to your desired directory:
 
 ```python
 PATH = "C:/Users/rafoliveira/Downloads/scraping-mxn/"
 ```
 
-### Dependências
+### Dependencies
 
 ```
-pip install pandas beautifulsoup4 openpyxl
+pip install -r requirements.txt
 ```
 
-## Como usar
+## Usage
 
 ```bash
-# 1. Scraping (gera CSVs em raw_data/)
+# 1. Scraping (outputs CSVs to raw_data/)
 python 01_scraping_sniim.py
 
-# 2. Transformação (gera Excel em output/)
+# 2. Transformation (outputs Excel files to output/)
 python 02_transformacao_quinzenal.py
 ```
 
-## Parâmetros do scraping
+## Scraping Parameters
 
-No script `01_scraping_sniim.py` você pode alterar:
+In `01_scraping_sniim.py` you can adjust:
 
-- **`STR_FECHA_INICIO` / `STR_FECHA_FINAL`** — período de consulta (formato `dd/mm/aaaa`)
-- **`PRECIOS_POR`** — `1` para apresentação comercial, `2` para kg calculado
-- **`LISTA_PRODUCTOS`** — lista de produtos a buscar
+- **`STR_FECHA_INICIO` / `STR_FECHA_FINAL`** — query date range (format `dd/mm/yyyy`)
+- **`PRECIOS_POR`** — `1` for commercial presentation, `2` for calculated kg
+- **`LISTA_PRODUCTOS`** — list of products to scrape
 
 ## Output
 
-- `raw_data/` — CSVs crus do scraping
-- `output/precos_produtos.xlsx` — preço médio por quinzena e região (uma aba por produto)
-- `output/precos_variacao_quinzenal.xlsx` — variação % quinzenal por região
+- `raw_data/` — raw CSVs from scraping
+- `output/precos_produtos.xlsx` — average price by biweekly period and region (one sheet per product)
+- `output/precos_variacao_quinzenal.xlsx` — biweekly % variation by region
 
-## Nota
+## Note
 
-O site do SNIIM pode ficar instável. Se ocorrerem timeouts, tente reduzir o intervalo de datas.
-
-
-- Requirements
-  - Python 3.8 or higher
-  - pandas
-  - numpy
-  - matplotlib
-  - BeautifulSoup4 (for sniim_scraping.py)
+The SNIIM website can be unstable. If you experience timeouts, try reducing the date range.
